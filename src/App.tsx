@@ -7,16 +7,16 @@ import { movieApi, tvShowApi } from './lib/api';
 import type { Movie, TVShow, MediaItem, ColumnValue, MovieFormData, TVShowFormData } from './types';
 import './App.css';
 
-function App() {
+export default function App() {
   const [activeTab, setActiveTab] = useState<'movies' | 'tvshows'>('movies');
   const [data, setData] = useState<MediaItem[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -53,7 +53,6 @@ function App() {
     try {
       await movieApi.create(formData);
       setIsAddModalOpen(false);
-      // Reset to first page and fetch data
       setPage(1);
       setData([]);
       fetchData();
@@ -62,12 +61,12 @@ function App() {
     }
   };
 
-  const handleEditMovie = async (id: string, formData: MovieFormData) => {
+  const handleEditMovie = async (formData: MovieFormData) => {
+    if (!selectedItem) return;
     try {
-      await movieApi.update(id, formData);
+      await movieApi.update(selectedItem.id, formData);
       setIsEditModalOpen(false);
       setSelectedItem(null);
-      // Reset to first page and fetch data
       setPage(1);
       setData([]);
       fetchData();
@@ -80,7 +79,6 @@ function App() {
     try {
       await tvShowApi.create(formData);
       setIsAddModalOpen(false);
-      // Reset to first page and fetch data
       setPage(1);
       setData([]);
       fetchData();
@@ -89,12 +87,12 @@ function App() {
     }
   };
 
-  const handleEditTVShow = async (id: string, formData: TVShowFormData) => {
+  const handleEditTVShow = async (formData: TVShowFormData) => {
+    if (!selectedItem) return;
     try {
-      await tvShowApi.update(id, formData);
+      await tvShowApi.update(selectedItem.id, formData);
       setIsEditModalOpen(false);
       setSelectedItem(null);
-      // Reset to first page and fetch data
       setPage(1);
       setData([]);
       fetchData();
@@ -104,12 +102,12 @@ function App() {
   };
 
   const handleDelete = async () => {
+    if (!selectedItem) return;
     try {
       const api = activeTab === 'movies' ? movieApi : tvShowApi;
-      await api.delete(selectedItem!.id);
+      await api.delete(selectedItem.id);
       setIsDeleteModalOpen(false);
       setSelectedItem(null);
-      // Reset to first page and fetch data
       setPage(1);
       setData([]);
       fetchData();
@@ -167,8 +165,6 @@ function App() {
     }
   ];
 
-  const columns = activeTab === 'movies' ? movieColumns : tvShowColumns;
-
   return (
     <div className="min-h-screen bg-gray-100">
       <div className="py-4 sm:py-10">
@@ -223,118 +219,94 @@ function App() {
           </div>
         </header>
 
-        <main>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                {isLoading ? (
-                  <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
-                  </div>
+        {/* Add Modal */}
+        {isAddModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                {activeTab === 'movies' ? (
+                  <MovieForm 
+                    onSubmit={handleAddMovie}
+                    onCancel={() => setIsAddModalOpen(false)}
+                  />
                 ) : (
-                  <DataTable
-                    data={data}
-                    columns={activeTab === 'movies' ? movieColumns : tvShowColumns}
-                    onEdit={(item) => {
-                      setSelectedItem(item);
-                      setIsEditModalOpen(true);
-                    }}
-                    onDelete={(item) => {
-                      setSelectedItem(item);
-                      setIsDeleteModalOpen(true);
-                    }}
-                    hasMore={hasMore}
-                    loadMore={() => setPage((p) => p + 1)}
+                  <TVShowForm
+                    onSubmit={handleAddTVShow}
+                    onCancel={() => setIsAddModalOpen(false)}
                   />
                 )}
               </div>
             </div>
           </div>
+        )}
+
+        {/* Edit Modal */}
+        {isEditModalOpen && selectedItem && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                {activeTab === 'movies' ? (
+                  <MovieForm
+                    initialData={selectedItem as Movie}
+                    onSubmit={handleEditMovie}
+                    onCancel={() => {
+                      setIsEditModalOpen(false);
+                      setSelectedItem(null);
+                    }}
+                  />
+                ) : (
+                  <TVShowForm
+                    initialData={selectedItem as TVShow}
+                    onSubmit={handleEditTVShow}
+                    onCancel={() => {
+                      setIsEditModalOpen(false);
+                      setSelectedItem(null);
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Modal */}
+        {isDeleteModalOpen && selectedItem && (
+          <DeleteModal
+            item={selectedItem}
+            onConfirm={handleDelete}
+            onCancel={() => {
+              setIsDeleteModalOpen(false);
+              setSelectedItem(null);
+            }}
+          />
+        )}
+
+        {/* Main Content */}
+        <main className="container mx-auto px-4 py-8">
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            {isLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+              </div>
+            ) : (
+              <DataTable
+                data={data}
+                columns={activeTab === 'movies' ? movieColumns : tvShowColumns}
+                onEdit={(item) => {
+                  setSelectedItem(item);
+                  setIsEditModalOpen(true);
+                }}
+                onDelete={(item) => {
+                  setSelectedItem(item);
+                  setIsDeleteModalOpen(true);
+                }}
+                hasMore={hasMore}
+                loadMore={() => setPage((p) => p + 1)}
+              />
+            )}
+          </div>
         </main>
       </div>
-
-      {/* Modal Overlays */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Add New {activeTab === 'movies' ? 'Movie' : 'TV Show'}
-                </h2>
-                <button
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-500 transition-colors duration-200"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div className="p-6">
-              {activeTab === 'movies' ? (
-                <MovieForm onSubmit={handleAddMovie} isEditing={false} />
-              ) : (
-                <TVShowForm onSubmit={handleAddTVShow} isEditing={false} />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isEditModalOpen && selectedItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white px-6 py-4 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Edit {activeTab === 'movies' ? 'Movie' : 'TV Show'}
-                </h2>
-                <button
-                  onClick={() => {
-                    setIsEditModalOpen(false);
-                    setSelectedItem(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-500 transition-colors duration-200"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div className="p-6">
-              {activeTab === 'movies' ? (
-                <MovieForm
-                  onSubmit={handleEditMovie}
-                  initialData={selectedItem as Movie}
-                  isEditing={true}
-                />
-              ) : (
-                <TVShowForm
-                  onSubmit={handleEditTVShow}
-                  initialData={selectedItem as TVShow}
-                  isEditing={true}
-                />
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <DeleteModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setSelectedItem(null);
-        }}
-        onConfirm={handleDelete}
-        title={`Delete ${activeTab === 'movies' ? 'Movie' : 'TV Show'}`}
-        itemName={selectedItem?.title || ''}
-      />
     </div>
   );
 }
-
-export default App;
