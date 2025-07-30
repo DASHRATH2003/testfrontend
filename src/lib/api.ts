@@ -12,6 +12,7 @@ const API_URL = window.location.hostname === 'localhost'
   ? BACKEND_URLS.local 
   : BACKEND_URLS.production;
 
+console.log('Current hostname:', window.location.hostname);
 console.log('Using API URL:', API_URL);
 
 const api = axios.create({
@@ -23,14 +24,20 @@ const api = axios.create({
 
 // Add response interceptor for error handling
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('API Response:', response.data);
+    return response;
+  },
   (error) => {
     if (error.response) {
       // Server responded with error
       console.error('API Error:', error.response.data);
+      console.error('Error Status:', error.response.status);
+      console.error('Error Headers:', error.response.headers);
     } else if (error.request) {
       // Request made but no response
       console.error('Network Error:', error.request);
+      console.error('Request Config:', error.config);
     } else {
       // Something else happened
       console.error('Error:', error.message);
