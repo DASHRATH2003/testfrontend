@@ -22,7 +22,9 @@ export default function App() {
     try {
       setIsLoading(true);
       const api = activeTab === 'movies' ? movieApi : tvShowApi;
+      console.log('Fetching data from:', api);
       const response = await api.getAll(page, 10);
+      console.log('API Response:', response);
       
       if (page === 1) {
         setData(response.data.data);
