@@ -1,7 +1,16 @@
 import axios from 'axios';
 import type { Movie, TVShow } from '../types';
 
-const API_URL = 'http://localhost:5000/api';
+// API URLs for different environments
+const BACKEND_URLS = {
+  local: 'http://localhost:5000/api',
+  production: 'https://testbackend-3-b0a0.onrender.com/api'
+};
+
+// Use production URL if running on Vercel, otherwise use local
+const API_URL = window.location.hostname === 'localhost' 
+  ? BACKEND_URLS.local 
+  : BACKEND_URLS.production;
 
 console.log('Using API URL:', API_URL);
 
