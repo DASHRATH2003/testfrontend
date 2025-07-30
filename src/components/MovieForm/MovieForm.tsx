@@ -1,26 +1,31 @@
 import { useState } from 'react';
 import { z } from 'zod';
+import type { MovieFormData } from '../../types';
 
 const movieSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  director: z.string().min(1, "Director is required"),
-  budget: z.number().min(0, "Budget must be positive"),
-  location: z.string().min(1, "Location is required"),
-  duration: z.number().min(1, "Duration must be positive"),
-  year: z.number().min(1900).max(new Date().getFullYear()),
+  title: z.string().min(1, 'Title is required'),
+  type: z.literal('movie').default('movie'),
+  director: z.string().min(1, 'Director is required'),
+  budget: z.number().min(0, 'Budget must be positive'),
+  location: z.string().min(1, 'Location is required'),
+  duration: z.number().int().min(1, 'Duration must be positive'),
+  year: z.number().int().min(1900, 'Year must be after 1900'),
   poster: z.string().optional(),
 });
 
-type MovieFormData = z.infer<typeof movieSchema>;
-
-interface MovieFormProps {
+interface Props {
+  initialData?: Partial<MovieFormData>;
   onSubmit: (data: MovieFormData) => void;
-  initialData?: MovieFormData;
-  isEditing?: boolean;
+  onCancel: () => void;
 }
 
-export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFormProps) {
-  const [formData, setFormData] = useState<MovieFormData>(initialData || {
+interface FormErrors {
+  [key: string]: string[];
+}
+
+export default function MovieForm({ initialData, onSubmit, onCancel }: Props) {
+  const [formData, setFormData] = useState<Partial<MovieFormData>>({
+    type: 'movie',
     title: '',
     director: '',
     budget: 0,
@@ -28,50 +33,61 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
     duration: 0,
     year: new Date().getFullYear(),
     poster: '',
+    ...initialData,
   });
 
-  const [errors, setErrors] = useState<Partial<Record<keyof MovieFormData, string>>>({});
-  const [touched, setTouched] = useState<Partial<Record<keyof MovieFormData, boolean>>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  const validateField = (field: keyof MovieFormData, value: any) => {
+  const validateField = (name: keyof MovieFormData, value: any) => {
     try {
-      const schema = movieSchema.shape[field];
-      schema.parse(value);
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      movieSchema.shape[name].parse(value);
+      setErrors(prev => ({ ...prev, [name]: [] }));
     } catch (error) {
       if (error instanceof z.ZodError) {
-        setErrors(prev => ({ ...prev, [field]: error.errors[0].message }));
+        setErrors(prev => ({
+          ...prev,
+          [name]: error.errors.map(err => err.message),
+        }));
       }
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    const newValue = type === 'number' ? parseFloat(value) || 0 : value;
+    
+    setFormData(prev => ({ ...prev, [name]: newValue }));
+    if (touched[name]) {
+      validateField(name as keyof MovieFormData, newValue);
+    }
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    const newValue = type === 'number' ? parseFloat(value) || 0 : value;
+    
+    setTouched(prev => ({ ...prev, [name]: true }));
+    validateField(name as keyof MovieFormData, newValue);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
     try {
       const validatedData = movieSchema.parse(formData);
       onSubmit(validatedData);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const newErrors: Partial<Record<keyof MovieFormData, string>> = {};
+        const newErrors: FormErrors = {};
         error.errors.forEach(err => {
           if (err.path[0]) {
-            newErrors[err.path[0] as keyof MovieFormData] = err.message;
+            newErrors[err.path[0]] = [err.message];
           }
         });
         setErrors(newErrors);
-        // Mark all fields as touched when form is submitted with errors
-        const allTouched: Partial<Record<keyof MovieFormData, boolean>> = {};
-        Object.keys(formData).forEach(key => {
-          allTouched[key as keyof MovieFormData] = true;
-        });
-        setTouched(allTouched);
       }
     }
-  };
-
-  const handleBlur = (field: keyof MovieFormData) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
-    validateField(field, formData[field]);
   };
 
   const renderField = (
@@ -94,15 +110,10 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
         <input
           id={field}
           type={type}
-          value={formData[field]}
-          onChange={(e) => {
-            const value = type === 'number' ? parseFloat(e.target.value) : e.target.value;
-            setFormData(prev => ({ ...prev, [field]: value }));
-            if (touched[field]) {
-              validateField(field, value);
-            }
-          }}
-          onBlur={() => handleBlur(field)}
+          name={field}
+          value={formData[field] || ''}
+          onChange={handleChange}
+          onBlur={handleBlur}
           placeholder={placeholder}
           className={`block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-400
             border rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2
@@ -112,7 +123,7 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
             } transition-colors duration-200`}
         />
         {showError && (
-          <p className="mt-1 text-xs text-red-500">{errors[field]}</p>
+          <p className="mt-1 text-xs text-red-500">{errors[field]?.join(', ')}</p>
         )}
       </div>
     );
@@ -165,7 +176,7 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
             hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 
             focus:ring-indigo-500 transition-colors duration-200"
         >
-          {isEditing ? (
+          {initialData?.id ? (
             <>
               <svg
                 className="w-4 h-4 mr-2"
@@ -200,6 +211,16 @@ export function MovieForm({ onSubmit, initialData, isEditing = false }: MovieFor
               Add Movie
             </>
           )}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center px-4 py-2 border border-gray-300 
+            text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white 
+            hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 
+            focus:ring-gray-500 transition-colors duration-200"
+        >
+          Cancel
         </button>
       </div>
     </form>

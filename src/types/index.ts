@@ -24,4 +24,7 @@ export interface TVShow extends BaseItem {
 
 export type MediaItem = Movie | TVShow;
 
+export type MovieFormData = Omit<Movie, 'id' | 'createdAt' | 'updatedAt'>;
+export type TVShowFormData = Omit<TVShow, 'id' | 'createdAt' | 'updatedAt'>;
+
 export type ColumnValue = string | number | undefined; 

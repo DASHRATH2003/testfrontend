@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { MovieForm } from './components/MovieForm/MovieForm';
-import { TVShowForm } from './components/TVShowForm/TVShowForm';
+import MovieForm from './components/MovieForm/MovieForm';
+import TVShowForm from './components/TVShowForm/TVShowForm';
 import { DataTable } from './components/DataTable/DataTable';
 import { DeleteModal } from './components/DeleteModal/DeleteModal';
 import { movieApi, tvShowApi } from './lib/api';
-import type { Movie, TVShow, MediaItem, ColumnValue } from './types';
+import type { Movie, TVShow, MediaItem, ColumnValue, MovieFormData, TVShowFormData } from './types';
 import './App.css';
 
 function App() {
@@ -49,24 +49,22 @@ function App() {
     }
   }, [page]); // Only fetch when page changes and is greater than 1
 
-  const handleAdd = async (formData: Movie | TVShow) => {
+  const handleAddMovie = async (formData: MovieFormData) => {
     try {
-      const api = activeTab === 'movies' ? movieApi : tvShowApi;
-      await api.create(formData);
+      await movieApi.create(formData);
       setIsAddModalOpen(false);
       // Reset to first page and fetch data
       setPage(1);
       setData([]);
       fetchData();
     } catch (error) {
-      console.error('Failed to add item:', error);
+      console.error('Failed to add movie:', error);
     }
   };
 
-  const handleEdit = async (formData: Movie | TVShow) => {
+  const handleEditMovie = async (id: string, formData: MovieFormData) => {
     try {
-      const api = activeTab === 'movies' ? movieApi : tvShowApi;
-      await api.update(selectedItem!.id, formData);
+      await movieApi.update(id, formData);
       setIsEditModalOpen(false);
       setSelectedItem(null);
       // Reset to first page and fetch data
@@ -74,7 +72,34 @@ function App() {
       setData([]);
       fetchData();
     } catch (error) {
-      console.error('Failed to update item:', error);
+      console.error('Failed to update movie:', error);
+    }
+  };
+
+  const handleAddTVShow = async (formData: TVShowFormData) => {
+    try {
+      await tvShowApi.create(formData);
+      setIsAddModalOpen(false);
+      // Reset to first page and fetch data
+      setPage(1);
+      setData([]);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to add TV show:', error);
+    }
+  };
+
+  const handleEditTVShow = async (id: string, formData: TVShowFormData) => {
+    try {
+      await tvShowApi.update(id, formData);
+      setIsEditModalOpen(false);
+      setSelectedItem(null);
+      // Reset to first page and fetch data
+      setPage(1);
+      setData([]);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to update TV show:', error);
     }
   };
 
@@ -202,20 +227,26 @@ function App() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
-                <DataTable
-                  data={data}
-                  columns={columns}
-                  onEdit={(item) => {
-                    setSelectedItem(item);
-                    setIsEditModalOpen(true);
-                  }}
-                  onDelete={(item) => {
-                    setSelectedItem(item);
-                    setIsDeleteModalOpen(true);
-                  }}
-                  hasMore={hasMore}
-                  loadMore={() => setPage((p) => p + 1)}
-                />
+                {isLoading ? (
+                  <div className="flex justify-center items-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+                  </div>
+                ) : (
+                  <DataTable
+                    data={data}
+                    columns={activeTab === 'movies' ? movieColumns : tvShowColumns}
+                    onEdit={(item) => {
+                      setSelectedItem(item);
+                      setIsEditModalOpen(true);
+                    }}
+                    onDelete={(item) => {
+                      setSelectedItem(item);
+                      setIsDeleteModalOpen(true);
+                    }}
+                    hasMore={hasMore}
+                    loadMore={() => setPage((p) => p + 1)}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -243,9 +274,9 @@ function App() {
             </div>
             <div className="p-6">
               {activeTab === 'movies' ? (
-                <MovieForm onSubmit={handleAdd} isEditing={false} />
+                <MovieForm onSubmit={handleAddMovie} isEditing={false} />
               ) : (
-                <TVShowForm onSubmit={handleAdd} isEditing={false} />
+                <TVShowForm onSubmit={handleAddTVShow} isEditing={false} />
               )}
             </div>
           </div>
@@ -276,13 +307,13 @@ function App() {
             <div className="p-6">
               {activeTab === 'movies' ? (
                 <MovieForm
-                  onSubmit={handleEdit}
+                  onSubmit={handleEditMovie}
                   initialData={selectedItem as Movie}
                   isEditing={true}
                 />
               ) : (
                 <TVShowForm
-                  onSubmit={handleEdit}
+                  onSubmit={handleEditTVShow}
                   initialData={selectedItem as TVShow}
                   isEditing={true}
                 />
